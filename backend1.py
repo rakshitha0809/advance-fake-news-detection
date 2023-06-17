@@ -80,7 +80,7 @@ def scraper(Title):
 
 #checking input in csv file
 def search_csv(Title):
-    with open('file1.csv', 'r') as file:
+    with open('file1.csv.xlsx', 'r') as file:
         reader = csv.DictReader(file)
         keywords = get_keywords(Title)
 
@@ -138,7 +138,7 @@ def news_message(text):
 
 # Define a function to write data to CSV
 def write_to_csv(data):
-    with open('file1.csv', 'a', newline='') as file:
+    with open('file1.csv.xlsx', 'a', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(data)  
     print("Data appended to CSV file.")     
