@@ -2,6 +2,9 @@ import streamlit as st
 import pandas as pd
 import requests
 import csv
+import easyocr
+import numpy as np
+from PIL import Image
 from bs4 import BeautifulSoup
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -13,23 +16,101 @@ from collections import Counter
 import nltk
 nltk.download('punkt')
 nltk.download('stopwords')
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+
+
+def get_first_headline_url(query):
+    # Construct the Google News search URL
+    search_url = f"https://news.google.com/search?q={query}&hl=en-US&gl=US&ceid=US%3Aen"
+
+    # Send a GET request to the search URL
+    response = requests.get(search_url)
+
+    # Parse the HTML content of the response using BeautifulSoup
+    soup = BeautifulSoup(response.content, 'html.parser')
+
+    # Find the first headline link
+    headline_link = soup.find('a', {'class': 'VDXfz'}).get('href')
+
+    # Construct the complete URL for the headline
+    headline_url = f"https://news.google.com{headline_link}"
+
+    return headline_url
+
+# url appending in spreadsheets for phantom buster
+def url_append(url,comment):
+    # Path to the JSON file containing your service account credentials
+    credentials_path = 'C:\\Users\\Vamshidhar\\OneDrive - White Cap\\Desktop\\ps2\Ps2\\streamlit\\fakenews-389613-078c3b88069d.json'
+
+    # Google Spreadsheet URL
+    spreadsheet_url = 'https://docs.google.com/spreadsheets/d/1X1LjEug49gz8x2e8ebLLzfF-8qCuFtSNjupKIAmqwhw/edit?usp=sharing'
+
+    # Extract the spreadsheet ID from the URL
+    spreadsheet_id = spreadsheet_url.split('/')[5]
+    # Authenticate using the credentials
+    scope = ['https://spreadsheets.google.com/feeds',
+            'https://www.googleapis.com/auth/drive']
+    credentials = ServiceAccountCredentials.from_json_keyfile_name(credentials_path, scope)
+    client = gspread.authorize(credentials)
+
+    # Open the spreadsheet by its ID
+    spreadsheet = client.open_by_key(spreadsheet_id)
+
+    # Select the first sheet in the spreadsheet
+    worksheet = spreadsheet.get_worksheet(0)
+
+    # Append the URL to the spreadsheet using CSV format
+    csv_data = [[url]]
+    global csv_string
+    csv_string = '\n'.join([','.join(row) for row in csv_data])
+
+    # Append the data to the worksheet
+    worksheet.append_row(values=[url,comment])
+
+    print("URLand comment appended successfully!")
 
 
 
+# extracting imp keywords from title and insta caption
 def get_keywords(sentence):
-    # Tokenize the sentence
     tokens = word_tokenize(sentence.lower())
     stop_words = set(stopwords.words('english'))
     filtered_tokens = [token for token in tokens if token not in stop_words]
-    
-    # Count the frequency of each token
     keyword_counts = Counter(filtered_tokens)
-    
-    # Get the top 3 most frequent tokens as keywords
     keywords = [token for token, _ in keyword_counts.most_common(10)]
-    
     return keywords
 
+
+# Scrape the Instagram caption from the given post URL.
+def scrape_instagram_caption(post_url: str) -> str:
+    response = requests.get(post_url)
+    soup = BeautifulSoup(response.text, 'html.parser')
+    caption_element = soup.select_one('meta[property="og:description"]')
+    caption = caption_element['content'] if caption_element else ''
+    return caption
+
+# removing unimp words from caption
+def extract_words_after_given_word(sentence: str, given_word: str) -> str:
+    words = sentence.split()
+    try:
+        index = words.index(given_word)
+        words_after = ' '.join(words[index+1:])
+        return words_after
+    except ValueError:
+        return ""
+    
+# checks match b/w title and caption
+def check_match(sentence1, sentence2):
+    keywords1 = get_keywords(sentence1)
+    keywords2 = get_keywords(sentence2)
+    matching_keywords = set(keywords1) & set(keywords2)
+    print("Match:",matching_keywords)
+    return len(matching_keywords) >= 1  
+
+
+
+# keyword match b/w senternces in google news and title
 def check_keyword_match(sentences_to_compare):
     first_sentence_keywords = get_keywords(Title)
     match_count = 0
@@ -47,14 +128,34 @@ def check_keyword_match(sentences_to_compare):
 
     return match_count >=2
 
+def img(uploaded_file):
+    if uploaded_file is not None:
+        image = Image.open(uploaded_file)
+
+    # Display the uploaded image
+        st.image(image, caption="Uploaded Image", use_column_width=True)
+
+        # Convert PIL Image to numpy array
+        img_array = np.array(image)
+
+        # Initialize the OCR reader
+        reader = easyocr.Reader(['en'])
+
+        # Perform OCR on the image array
+        results = reader.readtext(img_array)
+
+        # Extract the text from the OCR results
+        text = ''
+        for result in results:
+            text += result[1] + ' '
+    print(text)
+    return text
 
 
-
-
-# #headline extraction
-def scraper(Title):
+# headline extraction
+def scraper(news):
     url = 'https://news.google.com/search'
-    params = {'q': Title, 'hl': 'en-IN', 'gl': 'IN', 'ceid': 'IN:en'}
+    params = {'q': news, 'hl': 'en-IN', 'gl': 'IN', 'ceid': 'IN:en'}
     response = requests.get(url, params=params)
     print(requests.get(url, params=params))
     soup = BeautifulSoup(response.content, 'html.parser')
@@ -82,10 +183,10 @@ def scraper(Title):
 
 
 #checking input in csv file
-def search_csv(Title):
-    with open('file1.csv.xlsx', 'r') as file:
+def search_csv(news):
+    with open('file1.csv', 'r') as file:
         reader = csv.DictReader(file)
-        keywords = get_keywords(Title)
+        keywords = get_keywords(news)
 
         matching_results = []
         if len(keywords)>=3:
@@ -96,9 +197,21 @@ def search_csv(Title):
         if matching_results:
             return matching_results[0]
         else:
-            return scraper(Title)
-
+            return scraper(news)
         
+
+# print real news
+def first(Title):
+    url = 'https://news.google.com/search'
+    params = {'q': Title, 'hl': 'en-IN', 'gl': 'IN', 'ceid': 'IN:en'}
+    response = requests.get(url, params=params)
+    soup = BeautifulSoup(response.content, 'html.parser')
+
+    # Extract the first headline from the search results
+    first_article = soup.find('a', class_='DY5T1d')
+    headline = first_article.text
+
+    return headline
 
 
 
@@ -141,7 +254,7 @@ def news_message(text):
 
 # Define a function to write data to CSV
 def write_to_csv(data):
-    with open('file1.csv.xlsx', 'a', newline='') as file:
+    with open('file1.csv', 'a', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(data)  
     print("Data appended to CSV file.")     
@@ -150,14 +263,14 @@ def write_to_csv(data):
 # Create a form for user input
 st.title("FAKE NEWS DETECTION")
 with st.form("my_form"):
-    # Add form inputs
     global url
     global Title
+    global uploaded_file
     #global result
     Title = st.text_input("Enter title")
     url = st.text_input("Enter url")
+    uploaded_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
 
-    # Add a submit button
     submit_button = st.form_submit_button(label='SUBMIT')
       
    
@@ -165,16 +278,52 @@ with st.form("my_form"):
 # When the form is submitted, write the data to CSV
 global result
 if submit_button:
-    
-    if "" in url:
+    if uploaded_file:
+        global txt2
+        a = img(uploaded_file)
+        result = search_csv(a)
+        txt2 =False
+        global headline
+        headline = get_first_headline_url(a)
+    elif Title and "instagram.com" in url:
+        txt = scrape_instagram_caption(url)
+        given_word = "Instagram:"
+        first = get_first_headline_url(Title)
+        txt1 = extract_words_after_given_word(txt,given_word)
+        txt2 = check_match(Title,txt1)
+        if(txt2 == True):
+             result = search_csv(Title)
+        else:
+            result=' '
+            st.write("Content in url not matched.")     
+    elif Title and "" in url:
         st.write("")
+        headline = get_first_headline_url(Title)
+        txt2 = False
         result = search_csv(Title)
     else:
+        txt2 = False
+        headline = get_first_headline_url(Title)
         result = search_csv(Title)
         
     #st.write(result)
-    if  result=='False' or result==False or result=='FALSE':
-        st.write("Result: Fake News")  
+    
+    if txt2:
+        result = search_csv(Title)
+        if result == 'False' or result == False or result == 'FALSE':
+            #first = first(Title)
+            st.write("Result: Fake News")
+            st.write("Check here for real news: ", headline)
+            url_append(url, first)
+                # Convert the CSV string to bytes
+            csv_bytes = csv_string.encode('utf-8')
+    elif  result=='False' or result==False or result=='FALSE':
+        #first = first(Title)
+        st.write("Result: Fake News")
+        st.write("Check here for real news: ", headline)
+
     elif result=='True' or result==True or result=='TRUE':
         st.write("Result: Real News")
+    else:
+        st.write(' ')    
     write_to_csv([Title , url , result])
