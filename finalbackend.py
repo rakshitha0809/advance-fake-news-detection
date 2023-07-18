@@ -181,7 +181,7 @@ def get_first_headline_url(query):
 # url appending in spreadsheets for phantom buster
 def url_append(url,comment):
     # Path to the JSON file containing your service account credentials
-    credentials_path = "C:\\Users\\admin\\OneDrive\\Desktop\\fakenewsdetection\\decent-cable-391109-9ae34c81a95e.json"
+    credentials_path = "./decent-cable-391109-9ae34c81a95e.json"
     # credentials_path = './fakenews-389613-078c3b88069d.json'
     # Google Spreadsheet URL
     spreadsheet_url = 'https://docs.google.com//s//preadsheets//d//1X1LjEug49gz8x2e8ebLLzfF-8qCuFtSNjupKIAmqwhw//edit?usp=sharing'
@@ -322,7 +322,7 @@ def scraper(news):
 # Function to search data in Google Spreadsheet
 per=None
 def search_csv(news):
-    gc = gspread.service_account(filename="C:\\Users\\admin\\OneDrive\\Desktop\\fakenewsdetection\\decent-cable-391109-9ae34c81a95e.json")  
+    gc = gspread.service_account(filename="./decent-cable-391109-9ae34c81a95e.json")  
     sh = gc.open_by_url("https://docs.google.com/spreadsheets/d/1AuebDWQFXOeip92lhc8SOGVC5HX-jzplSzQlrb6ct74/edit?usp=sharing")
     global per
     worksheet = sh.get_worksheet(0)
@@ -402,7 +402,7 @@ def news_message(text):
 
 # Define a function to write data to CSV  
 def write_to_csv(data):
-    gc = gspread.service_account(filename="C:\\Users\\admin\\OneDrive\\Desktop\\fakenewsdetection\\decent-cable-391109-9ae34c81a95e.json")  
+    gc = gspread.service_account(filename="./decent-cable-391109-9ae34c81a95e.json")  
     sh = gc.open_by_url("https://docs.google.com/spreadsheets/d/1AuebDWQFXOeip92lhc8SOGVC5HX-jzplSzQlrb6ct74/edit?usp=sharing")
     worksheet = sh.get_worksheet(0)
     worksheet.append_row(data)
