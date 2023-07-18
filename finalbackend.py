@@ -17,8 +17,8 @@ from collections import Counter
 from requests.exceptions import MissingSchema
 from PIL import Image, ImageDraw, ImageFont
 import nltk
-# nltk.download('punkt')
-# nltk.download('stopwords')s
+nltk.download('punkt')
+nltk.download('stopwords')
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 global check_url
